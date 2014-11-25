@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "simplest_librtmp_send264", "simplest_librtmp_send264\simplest_librtmp_send264.vcxproj", "{E146E4F1-919B-4CE8-8E0F-09B66F99076A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "simplest_librtmp_send_flv", "simplest_librtmp_send_flv\simplest_librtmp_send_flv.vcxproj", "{75A72D14-C5F7-412C-BA36-9DBC8DEA5410}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "simplest_librtmp_receive", "simplest_librtmp_receive\simplest_librtmp_receive.vcxproj", "{F11AD463-27D7-440A-801A-EFD77272F2F8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E146E4F1-919B-4CE8-8E0F-09B66F99076A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E146E4F1-919B-4CE8-8E0F-09B66F99076A}.Debug|Win32.Build.0 = Debug|Win32
+		{E146E4F1-919B-4CE8-8E0F-09B66F99076A}.Release|Win32.ActiveCfg = Release|Win32
+		{E146E4F1-919B-4CE8-8E0F-09B66F99076A}.Release|Win32.Build.0 = Release|Win32
+		{75A72D14-C5F7-412C-BA36-9DBC8DEA5410}.Debug|Win32.ActiveCfg = Debug|Win32
+		{75A72D14-C5F7-412C-BA36-9DBC8DEA5410}.Debug|Win32.Build.0 = Debug|Win32
+		{75A72D14-C5F7-412C-BA36-9DBC8DEA5410}.Release|Win32.ActiveCfg = Release|Win32
+		{75A72D14-C5F7-412C-BA36-9DBC8DEA5410}.Release|Win32.Build.0 = Release|Win32
+		{F11AD463-27D7-440A-801A-EFD77272F2F8}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F11AD463-27D7-440A-801A-EFD77272F2F8}.Debug|Win32.Build.0 = Debug|Win32
+		{F11AD463-27D7-440A-801A-EFD77272F2F8}.Release|Win32.ActiveCfg = Release|Win32
+		{F11AD463-27D7-440A-801A-EFD77272F2F8}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
