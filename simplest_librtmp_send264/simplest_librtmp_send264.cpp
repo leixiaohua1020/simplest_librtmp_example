@@ -9,7 +9,7 @@
  * http://blog.csdn.net/leixiaohua1020
  *
  * 本程序用于将内存中的H.264数据推送至RTMP流媒体服务器。
- *
+ * This program can send local h264 stream to net server as rtmp live stream.
  */
 
 #include <stdio.h>
@@ -20,6 +20,7 @@
 FILE *fp_send1;
 
 //读文件的回调函数
+//we use this callback function to read data from buffer
 int read_buffer1(unsigned char *buf, int buf_size ){
 	if(!feof(fp_send1)){
 		int true_size=fread(buf,1,buf_size,fp_send1);
@@ -35,6 +36,7 @@ int main(int argc, char* argv[])
 
 	//初始化并连接到服务器
 	Connect("rtmp://192.168.199.166/publishlive/livestream");
+	
 	//发送
 	SendH264Data(read_buffer1);
 

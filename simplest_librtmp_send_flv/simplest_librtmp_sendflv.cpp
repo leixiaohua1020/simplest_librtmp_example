@@ -9,13 +9,12 @@
  * http://blog.csdn.net/leixiaohua1020
  *
  * 本程序用于将FLV格式的视音频文件使用RTMP推送至RTMP流媒体服务器。
- *
+ * This program can send local flv file to net server as a rtmp live stream.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <stdint.h>
 #ifndef WIN32
 #include <unistd.h>
@@ -25,42 +24,47 @@
 #include "librtmp/rtmp_sys.h"
 #include "librtmp/log.h"
 
-
 #define HTON16(x)  ((x>>8&0xff)|(x<<8&0xff00))
 #define HTON24(x)  ((x>>16&0xff)|(x<<16&0xff0000)|(x&0xff00))
 #define HTON32(x)  ((x>>24&0xff)|(x>>8&0xff00)|\
 	(x<<8&0xff0000)|(x<<24&0xff000000))
 #define HTONTIME(x) ((x>>16&0xff)|(x<<16&0xff0000)|(x&0xff00)|(x&0xff000000))
 
+/*read 1 byte*/
 int ReadU8(uint32_t *u8,FILE*fp){
 	if(fread(u8,1,1,fp)!=1)
 		return 0;
 	return 1;
 }
+/*read 2 byte*/
 int ReadU16(uint32_t *u16,FILE*fp){
 	if(fread(u16,2,1,fp)!=1)
 		return 0;
 	*u16=HTON16(*u16);
 	return 1;
 }
+/*read 3 byte*/
 int ReadU24(uint32_t *u24,FILE*fp){
 	if(fread(u24,3,1,fp)!=1)
 		return 0;
 	*u24=HTON24(*u24);
 	return 1;
 }
+/*read 4 byte*/
 int ReadU32(uint32_t *u32,FILE*fp){
 	if(fread(u32,4,1,fp)!=1)
 		return 0;
 	*u32=HTON32(*u32);
 	return 1;
 }
+/*read 1 byte,and loopback 1 byte at once*/
 int PeekU8(uint32_t *u8,FILE*fp){
 	if(fread(u8,1,1,fp)!=1)
 		return 0;
 	fseek(fp,-1,SEEK_CUR);
 	return 1;
 }
+/*read 4 byte and convert to time format*/
 int ReadTime(uint32_t *utime,FILE*fp){
 	if(fread(utime,4,1,fp)!=1)
 		return 0;
@@ -81,83 +85,101 @@ void CleanupSockets()
 	WSACleanup();
 }
 
-int send_use_packet(){
-
-	RTMP *rtmp=NULL;//rtmp应用指针
-	RTMPPacket *packet=NULL;//rtmp包结构
-	long start=0;
-	long perframetime=0;
+int send_using_packet(){
+	RTMP *rtmp=NULL;			
+	RTMPPacket *packet=NULL;
+	uint32_t start_time=0;
+	uint32_t now_time=0;
+	//the timestamp of the previous frame
+	long pre_frame_time=0; 
 	long lasttime=0;
 	int bNextIsKey=1;
-	RTMP_LogLevel lvl=RTMP_LOGDEBUG;
-	FILE*fp=NULL;	
-	if (!InitSockets()){
-		printf("Init Socket Err\n");
+	uint32_t preTagsize=0;
+	
+	//packet attributes
+	uint32_t type=0;			
+	uint32_t datalength=0;		
+	uint32_t timestamp=0;		
+	uint32_t streamid=0;			
+
+	FILE*fp=NULL;
+	fp=fopen("cuc_ieschool.flv","rb");
+	if (!fp){
+		RTMP_LogPrintf("Open File Error.\n");
+		CleanupSockets();
 		return -1;
 	}
 
-	RTMP_LogSetLevel(lvl);
+	/* set log level */
+	RTMP_LogLevel loglvl=RTMP_LOGDEBUG;
+	RTMP_LogSetLevel(loglvl);
+		
+	if (!InitSockets()){
+		RTMP_LogPrintf("Init Socket Err\n");
+		return -1;
+	}
 
 	rtmp=RTMP_Alloc();
 	RTMP_Init(rtmp);
-	rtmp->Link.timeout=5;//设置连接超时，单位秒，默认30秒
+	//set connection timeout,default 30s
+	rtmp->Link.timeout=5;			
+	if(!RTMP_SetupURL(rtmp,"rtmp://222.31.64.73/live/livestream"))
+	{
+		RTMP_Log(RTMP_LOGERROR,"SetupURL Err\n");
+		RTMP_Free(rtmp);
+		CleanupSockets();
+		return -1;
+	}
+	
+	//if unable,the AMF command would be 'play' instead of 'publish'
+	RTMP_EnableWrite(rtmp);	
+	
+	if (!RTMP_Connect(rtmp,NULL)){
+		RTMP_Log(RTMP_LOGERROR,"Connect Err\n");
+		RTMP_Free(rtmp);
+		CleanupSockets();
+		return -1;
+	}
+	
+	if (!RTMP_ConnectStream(rtmp,0)){
+		RTMP_Log(RTMP_LOGERROR,"ConnectStream Err\n");
+		RTMP_Close(rtmp);
+		RTMP_Free(rtmp);
+		CleanupSockets();
+		return -1;
+	}
 
 	packet=(RTMPPacket*)malloc(sizeof(RTMPPacket));
-	memset(packet,0,sizeof(RTMPPacket));
 	RTMPPacket_Alloc(packet,1024*64);
 	RTMPPacket_Reset(packet);
-	
-	RTMP_SetupURL(rtmp,"rtmp://192.168.199.166/publishlive/livestream");
-	//Important
-	RTMP_EnableWrite(rtmp);
 
-	if (!RTMP_Connect(rtmp,NULL)){
-		printf("Connect Err\n");
-		CleanupSockets();
-		return -1;
-	}
-	//创建并发布流(取决于rtmp->Link.lFlags)
-	if (!RTMP_ConnectStream(rtmp,0)){
-		printf("ConnectStream Err\n");
-		RTMP_Close(rtmp);
-		CleanupSockets();
-		return -1;
-	}
-	packet->m_hasAbsTimestamp = 0; //绝对时间戳
-	packet->m_nChannel = 0x04; //通道
+	packet->m_hasAbsTimestamp = 0;	
+	packet->m_nChannel = 0x04;	
 	packet->m_nInfoField2 = rtmp->m_stream_id;
 
-	fp=fopen("cuc_ieschool.flv","rb");
-	if (fp==NULL){
-		printf("Open File Error.\n");
-		RTMP_Close(rtmp);
-		CleanupSockets();
-		return -1;
-	}
-
-	printf("Start to send data ...\n");
+	RTMP_LogPrintf("Start to send data ...\n");
 	
-	fseek(fp,9,SEEK_SET);//跳过前9个字节
-	fseek(fp,4,SEEK_CUR);//跳过4字节长度
-	start=time(NULL)-1;
-	perframetime=0;//上一帧时间戳
-	while(1){
-		uint32_t type=0;//类型
-		uint32_t datalength=0;//数据长度
-		uint32_t timestamp=0;//时间戳
-		uint32_t streamid=0;//流ID
-		uint32_t alldatalength=0;//该帧总长度
-
-		if(((time(NULL)-start)<(perframetime/1000))&&bNextIsKey){	
-			//发的太快就等一下
-			if(perframetime>lasttime){
-				printf("TimeStamp:%8lu ms\n",perframetime);
-				lasttime=perframetime;
+	//jump over FLV Header
+	fseek(fp,9,SEEK_SET);	
+	//jump over previousTagSizen
+	fseek(fp,4,SEEK_CUR);	
+	start_time=RTMP_GetTime();
+	while(1)
+	{
+		if((((now_time=RTMP_GetTime())-start_time)
+			  <(pre_frame_time)) && bNextIsKey){	
+			//wait for 1 sec if the send process is too fast
+			//this mechanism is not very good,need some improvement
+			if(pre_frame_time>lasttime){
+				RTMP_LogPrintf("TimeStamp:%8lu ms\n",pre_frame_time);
+				lasttime=pre_frame_time;
 			}
 			Sleep(1000);
 			continue;
-		}	
-		if(!ReadU8(&type,fp))
+		}
+		
+		//not quite the same as FLV spec
+		if(!ReadU8(&type,fp))	
 			break;
 		if(!ReadU24(&datalength,fp))
 			break;
@@ -165,31 +187,35 @@ int send_use_packet(){
 			break;
 		if(!ReadU24(&streamid,fp))
 			break;
+
 		if (type!=0x08&&type!=0x09){
-			//跳过非音视频桢
+			//jump over non_audio and non_video frame，
+			//jump over next previousTagSizen at the same time
 			fseek(fp,datalength+4,SEEK_CUR);
 			continue;
 		}
+		
 		if(fread(packet->m_body,1,datalength,fp)!=datalength)
 			break;
-		packet->m_headerType = RTMP_PACKET_SIZE_MEDIUM; 
+
+		packet->m_headerType = RTMP_PACKET_SIZE_LARGE; 
 		packet->m_nTimeStamp = timestamp; 
-		packet->m_packetType=type;
-		packet->m_nBodySize=datalength;
+		packet->m_packetType = type;
+		packet->m_nBodySize  = datalength;
+		pre_frame_time=timestamp;
 
 		if (!RTMP_IsConnected(rtmp)){
-			printf("rtmp is not connect\n");
+			RTMP_Log(RTMP_LOGERROR,"rtmp is not connect\n");
 			break;
 		}
 		if (!RTMP_SendPacket(rtmp,packet,0)){
-			printf("Send Error\n");
+			RTMP_Log(RTMP_LOGERROR,"Send Error\n");
 			break;
 		}
-		if(!ReadU32(&alldatalength,fp))
+
+		if(!ReadU32(&preTagsize,fp))
 			break;
-		perframetime=timestamp;
 			
-		bNextIsKey=0;
 		if(!PeekU8(&type,fp))
 			break;
 		if(type==0x09){
@@ -198,22 +224,27 @@ int send_use_packet(){
 			if(!PeekU8(&type,fp)){
 				break;
 			}
-			if(type==0x17){
+			if(type==0x17)
 				bNextIsKey=1;
-			}
+			else
+				bNextIsKey=0;
+
 			fseek(fp,-11,SEEK_CUR);
 		}
-	}
-	printf("\nSend Data Over\n");
-	fclose(fp);
+	}                
+
+	RTMP_LogPrintf("\nSend Data Over\n");
+	
+	if(fp)
+		fclose(fp);
 
 	if (rtmp!=NULL){
-		RTMP_Close(rtmp);//断开连接
-		RTMP_Free(rtmp);//释放内存
+		RTMP_Close(rtmp);	
+		RTMP_Free(rtmp);	
 		rtmp=NULL;
 	}
 	if (packet!=NULL){
-		RTMPPacket_Free(packet);//释放内存
+		RTMPPacket_Free(packet);	
 		free(packet);
 		packet=NULL;
 	}
@@ -222,12 +253,156 @@ int send_use_packet(){
 	return 0;
 }
 
-int send_use_write(){
+int send_using_write(){
+	uint32_t start_time=0;
+	uint32_t now_time=0;
+	uint32_t pre_frame_time=0;
+	uint32_t lasttime=0;
+	int bNextIsKey=0;
+	char* pFileBuf=NULL;
+
+	//read from tag header
+	uint32_t type=0;
+	uint32_t datalength=0;
+	uint32_t timestamp=0;
+
+	RTMP *rtmp=NULL;			
+	
+	FILE*fp=NULL;
+	fp=fopen("cuc_ieschool.flv","rb");
+	if (!fp){
+		RTMP_LogPrintf("Open File Error.\n");
+		CleanupSockets();
+		return -1;
+	}
+
+	/* set log level */
+	RTMP_LogLevel loglvl=RTMP_LOGDEBUG;
+	RTMP_LogSetLevel(loglvl);
+		
+	if (!InitSockets()){
+		RTMP_LogPrintf("Init Socket Err\n");
+		return -1;
+	}
+
+	rtmp=RTMP_Alloc();
+	RTMP_Init(rtmp);
+	//set connection timeout,default 30s
+	rtmp->Link.timeout=5;			
+	if(!RTMP_SetupURL(rtmp,"rtmp://222.31.64.73/live/livestream"))
+	{
+		RTMP_Log(RTMP_LOGERROR,"SetupURL Err\n");
+		RTMP_Free(rtmp);
+		CleanupSockets();
+		return -1;
+	}
+
+	RTMP_EnableWrite(rtmp);
+	//1hour
+	RTMP_SetBufferMS(rtmp, 3600*1000);		
+	if (!RTMP_Connect(rtmp,NULL)){
+		RTMP_Log(RTMP_LOGERROR,"Connect Err\n");
+		RTMP_Free(rtmp);
+		CleanupSockets();
+		return -1;
+	}
+	
+	if (!RTMP_ConnectStream(rtmp,0)){
+		RTMP_Log(RTMP_LOGERROR,"ConnectStream Err\n");
+		RTMP_Close(rtmp);
+		RTMP_Free(rtmp);
+		CleanupSockets();
+		return -1;
+	}
+
+	printf("Start to send data ...\n");
+	
+	//jump over FLV Header
+	fseek(fp,9,SEEK_SET);	
+	//jump over previousTagSizen
+	fseek(fp,4,SEEK_CUR);	
+	start_time=RTMP_GetTime();
+	while(1)
+	{
+		if((((now_time=RTMP_GetTime())-start_time)
+			  <(pre_frame_time)) && bNextIsKey){	
+			//wait for 1 sec if the send process is too fast
+			//this mechanism is not very good,need some improvement
+			if(pre_frame_time>lasttime){
+				RTMP_LogPrintf("TimeStamp:%8lu ms\n",pre_frame_time);
+				lasttime=pre_frame_time;
+			}
+			Sleep(1000);
+			continue;
+		}
+		
+		//jump over type
+		fseek(fp,1,SEEK_CUR);	
+		if(!ReadU24(&datalength,fp))
+			break;
+		if(!ReadTime(&timestamp,fp))
+			break;
+		//jump back
+		fseek(fp,-8,SEEK_CUR);	
+		
+		pFileBuf=(char*)malloc(11+datalength+4);
+		memset(pFileBuf,0,11+datalength+4);
+		if(fread(pFileBuf,1,11+datalength+4,fp)!=(11+datalength+4))
+			break;
+		
+		pre_frame_time=timestamp;
+		
+		if (!RTMP_IsConnected(rtmp)){
+			RTMP_Log(RTMP_LOGERROR,"rtmp is not connect\n");
+			break;
+		}
+		if (!RTMP_Write(rtmp,pFileBuf,11+datalength+4)){
+			RTMP_Log(RTMP_LOGERROR,"Rtmp Write Error\n");
+			break;
+		}
+		
+		free(pFileBuf);
+		pFileBuf=NULL;
+
+		if(!PeekU8(&type,fp))
+			break;
+		if(type==0x09){
+			if(fseek(fp,11,SEEK_CUR)!=0)
+				break;
+			if(!PeekU8(&type,fp)){
+				break;
+			}
+			if(type==0x17)
+				bNextIsKey=1;
+			else
+				bNextIsKey=0;
+			fseek(fp,-11,SEEK_CUR);
+		}
+	}
+
+	RTMP_LogPrintf("\nSend Data Over\n");
+	
+	if(fp)
+		fclose(fp);
+
+	if (rtmp!=NULL){
+		RTMP_Close(rtmp);	
+		RTMP_Free(rtmp);	
+		rtmp=NULL;
+	}
+
+	if(pFileBuf)
+	{
+		free(pFileBuf);
+		pFileBuf=NULL;
+	}
+
+	CleanupSockets();
 	return 0;
 }
 
 int main(int argc, char* argv[]){
-	send_use_packet();
-	send_use_write();
+	//send_using_packet();
+	send_using_write();
 	return 0;
 }

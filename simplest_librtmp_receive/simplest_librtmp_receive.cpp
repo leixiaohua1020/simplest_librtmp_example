@@ -9,12 +9,11 @@
  * http://blog.csdn.net/leixiaohua1020
  *
  * 本程序用于接收RTMP流媒体并在本地保存成FLV格式的文件。
- *
+ * This program can receive rtmp live stream and save it as local flv file.
  */
 #include <stdio.h>
 #include "librtmp/rtmp_sys.h"
 #include "librtmp/log.h"
-
 
 int InitSockets()
 {
@@ -32,49 +31,88 @@ void CleanupSockets()
 int main(int argc, char* argv[])
 {
 	InitSockets();
-	RTMP rtmp={0};
-	RTMP_Init(&rtmp);
-	rtmp.Link.timeout=25;//超时设置
+	
 	double duration=-1;
 	int nRead;
+	//live stream or not
+	bool bLiveStream=true;				
+	
+	//10M
+	int bufsize=1024*1024*10;			
+	char *buf=(char*)malloc(bufsize);
+	memset(buf,0,bufsize);
+	long countbufsize=0;
+	
 	FILE *fp=fopen("receive.flv","wb");
-	int buffsize=1024*1024*10;
-	char *buff=(char*)malloc(buffsize);
-	long countbuffsize=0;
-	bool bLiveStream=true;//是否直播
+	if (!fp){
+		RTMP_LogPrintf("Open File Error.\n");
+		CleanupSockets();
+		return -1;
+	}
+	
+	/* set log level */
+	RTMP_LogLevel loglvl=RTMP_LOGDEBUG;
+	RTMP_LogSetLevel(loglvl);
 
-	RTMP_SetupURL(&rtmp,"rtmp://192.168.199.166/publishlive/livestream");
+	RTMP *rtmp=RTMP_Alloc();
+	RTMP_Init(rtmp);
+	//set connection timeout,default 30s
+	rtmp->Link.timeout=10;	
+	
+	if(!RTMP_SetupURL(rtmp,"rtmp://222.31.64.73/live/livestream"))
+	{
+		RTMP_Log(RTMP_LOGERROR,"SetupURL Err\n");
+		RTMP_Free(rtmp);
+		CleanupSockets();
+		return -1;
+	}
 	if (bLiveStream){
-		rtmp.Link.lFlags|=RTMP_LF_LIVE;
+		rtmp->Link.lFlags|=RTMP_LF_LIVE;
 	}
-
-	RTMP_SetBufferMS(&rtmp, 3600*1000);//1hour
-	if(!RTMP_Connect(&rtmp,NULL)){
-		printf("Connect Server Error\n");
-		WSACleanup();
-		return -1;
-	}
-	if(!RTMP_ConnectStream(&rtmp,0)){
-		printf("Connect Stream Error\n");
-		RTMP_Close(&rtmp);
-		WSACleanup();
+	
+	//1hour
+	RTMP_SetBufferMS(rtmp, 3600*1000);		
+	
+	if(!RTMP_Connect(rtmp,NULL)){
+		RTMP_Log(RTMP_LOGERROR,"Connect Err\n");
+		RTMP_Free(rtmp);
+		CleanupSockets();
 		return -1;
 	}
 
-	while(nRead=RTMP_Read(&rtmp,buff,buffsize)){
-		fwrite(buff,1,nRead,fp);
-		if (!bLiveStream&&duration<0){
-			duration = RTMP_GetDuration(&rtmp);
-			printf("Duration:%f\n",duration);
+	if(!RTMP_ConnectStream(rtmp,0)){
+		RTMP_Log(RTMP_LOGERROR,"ConnectStream Err\n");
+		RTMP_Free(rtmp);
+		RTMP_Close(rtmp);
+		CleanupSockets();
+		return -1;
+	}
+
+	while(nRead=RTMP_Read(rtmp,buf,bufsize)){
+		fwrite(buf,1,nRead,fp);
+		if (!bLiveStream && duration<0){
+			duration = RTMP_GetDuration(rtmp);
+			RTMP_LogPrintf("Duration:%f\n",duration);
 		}
-		countbuffsize+=nRead;
-		printf("Receive: %dByte, Total: %0.2fkB\n",nRead,countbuffsize*1.0/1024);
+		countbufsize+=nRead;
+		RTMP_LogPrintf("Receive: %dByte, Total: %0.2fkB\n",nRead,countbufsize*1.0/1024);
 	}
 
-	fclose(fp);
-	free(buff);
-	buff=NULL;
-	RTMP_Close(&rtmp);
-	WSACleanup();
+	if(fp)
+		fclose(fp);
+
+	if(buf)
+	{
+		free(buf);
+		buf=NULL;
+	}
+
+	if(rtmp)
+	{
+		RTMP_Close(rtmp);
+		RTMP_Free(rtmp);
+		CleanupSockets();
+		rtmp=NULL;
+	}	
 	return 0;
 }
