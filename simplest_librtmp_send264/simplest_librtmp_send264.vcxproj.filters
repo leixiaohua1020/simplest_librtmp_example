@@ -23,10 +23,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="SpsDecode.h">
+    <ClInclude Include="librtmp_send264.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="librtmp_send264.h">
+    <ClInclude Include="sps_decode.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

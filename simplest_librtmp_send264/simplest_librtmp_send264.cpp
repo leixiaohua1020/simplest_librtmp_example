@@ -35,13 +35,13 @@ int main(int argc, char* argv[])
 	fp_send1 = fopen("cuc_ieschool.h264", "rb");
 
 	//初始化并连接到服务器
-	Connect("rtmp://192.168.199.166/publishlive/livestream");
+	RTMP264_Connect("rtmp://localhost/publishlive/livestream");
 	
 	//发送
-	SendH264Data(read_buffer1);
+	RTMP264_Send(read_buffer1);
 
 	//断开连接并释放相关资源
-	Close();
+	RTMP264_Close();
 
 	return 0;
 }

@@ -18,7 +18,7 @@
 #include "librtmp\rtmp.h"   
 #include "librtmp\rtmp_sys.h"   
 #include "librtmp\amf.h"  
-#include "SpsDecode.h"
+#include "sps_decode.h"
 
 #ifdef WIN32     
 #include <windows.h>  
@@ -170,11 +170,11 @@ unsigned char* m_pFileBuf_tmp_old;	//used for realloc
 /**
  * 初始化并连接到服务器
  *
- * @参数 url 服务器上对应webapp的地址
+ * @param url 服务器上对应webapp的地址
  *					
  * @成功则返回1 , 失败则返回0
  */ 
-int Connect(const char* url)  
+int RTMP264_Connect(const char* url)  
 {  
 	nalhead_pos=0;
 	m_nFileBufSize=BUFFER_SIZE;
@@ -214,7 +214,7 @@ int Connect(const char* url)
  * 断开连接，释放相关的资源。
  *
  */    
-void Close()  
+void RTMP264_Close()  
 {  
 	if(m_pRtmp)  
 	{  
@@ -236,10 +236,10 @@ void Close()
 /**
  * 发送RTMP数据包
  *
- * @参数 nPacketType 数据类型
- * @参数 data 存储数据内容
- * @参数 size 数据大小
- * @参数 nTimestamp 当前包的时间戳
+ * @param nPacketType 数据类型
+ * @param data 存储数据内容
+ * @param size 数据大小
+ * @param nTimestamp 当前包的时间戳
  *
  * @成功则返回 1 , 失败则返回一个小于0的数
  */
@@ -278,14 +278,14 @@ int SendPacket(unsigned int nPacketType,unsigned char *data,unsigned int size,un
 /**
  * 发送视频的sps和pps信息
  *
- * @参数 pps 存储视频的pps信息
- * @参数 pps_len 视频的pps信息长度
- * @参数 sps 存储视频的pps信息
- * @参数 sps_len 视频的sps信息长度
+ * @param pps 存储视频的pps信息
+ * @param pps_len 视频的pps信息长度
+ * @param sps 存储视频的pps信息
+ * @param sps_len 视频的sps信息长度
  *
  * @成功则返回 1 , 失败则返回0
  */
-int send_video_sps_pps(unsigned char *pps,int pps_len,unsigned char * sps,int sps_len)
+int SendVideoSpsPps(unsigned char *pps,int pps_len,unsigned char * sps,int sps_len)
 {
 	RTMPPacket * packet=NULL;//rtmp包结构
 	unsigned char * body=NULL;
@@ -341,17 +341,16 @@ int send_video_sps_pps(unsigned char *pps,int pps_len,unsigned char * sps,int sp
 /**
  * 发送H264数据帧
  *
- * @参数 data 存储数据帧内容
- * @参数 size 数据帧的大小
- * @参数 bIsKeyFrame 记录该帧是否为关键帧
- * @参数 nTimeStamp 当前帧的时间戳
+ * @param data 存储数据帧内容
+ * @param size 数据帧的大小
+ * @param bIsKeyFrame 记录该帧是否为关键帧
+ * @param nTimeStamp 当前帧的时间戳
  *
  * @成功则返回 1 , 失败则返回0
  */
 int SendH264Packet(unsigned char *data,unsigned int size,int bIsKeyFrame,unsigned int nTimeStamp)  
 {  
-	if(data == NULL && size<11)  
-	{  
+	if(data == NULL && size<11){  
 		return false;  
 	}  
 
@@ -359,8 +358,7 @@ int SendH264Packet(unsigned char *data,unsigned int size,int bIsKeyFrame,unsigne
 	memset(body,0,size+9);
 
 	int i = 0; 
-	if(bIsKeyFrame)  
-	{  
+	if(bIsKeyFrame){  
 		body[i++] = 0x17;// 1:Iframe  7:AVC   
 		body[i++] = 0x01;// AVC NALU   
 		body[i++] = 0x00;  
@@ -375,10 +373,8 @@ int SendH264Packet(unsigned char *data,unsigned int size,int bIsKeyFrame,unsigne
 		body[i++] = size&0xff;
 		// NALU data   
 		memcpy(&body[i],data,size);  
-		send_video_sps_pps(metaData.Pps,metaData.nPpsLen,metaData.Sps,metaData.nSpsLen);
-	}  
-	else  
-	{  
+		SendVideoSpsPps(metaData.Pps,metaData.nPpsLen,metaData.Sps,metaData.nSpsLen);
+	}else{  
 		body[i++] = 0x27;// 2:Pframe  7:AVC   
 		body[i++] = 0x01;// AVC NALU   
 		body[i++] = 0x00;  
@@ -406,8 +402,8 @@ int SendH264Packet(unsigned char *data,unsigned int size,int bIsKeyFrame,unsigne
 /**
  * 从内存中读取出第一个Nal单元
  *
- * @参数 nalu 存储nalu数据
- * @参数 read_buffer 回调函数，当数据不足的时候，系统会自动调用该函数获取输入数据。
+ * @param nalu 存储nalu数据
+ * @param read_buffer 回调函数，当数据不足的时候，系统会自动调用该函数获取输入数据。
  *					2个参数功能：
  *					uint8_t *buf：外部数据送至该地址
  *					int buf_size：外部数据大小
@@ -478,8 +474,8 @@ gotnal_head:
 /**
  * 从内存中读取出一个Nal单元
  *
- * @参数 nalu 存储nalu数据
- * @参数 read_buffer 回调函数，当数据不足的时候，系统会自动调用该函数获取输入数据。
+ * @param nalu 存储nalu数据
+ * @param read_buffer 回调函数，当数据不足的时候，系统会自动调用该函数获取输入数据。
  *					2个参数功能：
  *					uint8_t *buf：外部数据送至该地址
  *					int buf_size：外部数据大小
@@ -614,14 +610,14 @@ int ReadOneNaluFromBuf(NaluUnit &nalu,int (*read_buffer)(uint8_t *buf, int buf_s
 /**
  * 将内存中的一段H.264编码的视频数据利用RTMP协议发送到服务器
  *
- * @参数 read_buffer 回调函数，当数据不足的时候，系统会自动调用该函数获取输入数据。
+ * @param read_buffer 回调函数，当数据不足的时候，系统会自动调用该函数获取输入数据。
  *					2个参数功能：
  *					uint8_t *buf：外部数据送至该地址
  *					int buf_size：外部数据大小
  *					返回值：成功读取的内存大小
  * @成功则返回1 , 失败则返回0
  */ 
-int SendH264Data(int (*read_buffer)(unsigned char *buf, int buf_size))  
+int RTMP264_Send(int (*read_buffer)(unsigned char *buf, int buf_size))  
 {    
 	int ret;
 	uint32_t now,last_update;
@@ -659,9 +655,9 @@ int SendH264Data(int (*read_buffer)(unsigned char *buf, int buf_size))
 		metaData.nFrameRate = 25;
 
 	//发送PPS,SPS
-	ret=send_video_sps_pps(metaData.Pps,metaData.nPpsLen,metaData.Sps,metaData.nSpsLen);
-	if(ret!=1)
-		return FALSE;
+	//ret=SendVideoSpsPps(metaData.Pps,metaData.nPpsLen,metaData.Sps,metaData.nSpsLen);
+	//if(ret!=1)
+	//	return FALSE;
 
 	unsigned int tick = 0;  
 	unsigned int tick_gap = 1000/metaData.nFrameRate; 
@@ -671,7 +667,7 @@ int SendH264Data(int (*read_buffer)(unsigned char *buf, int buf_size))
 	{    
 got_sps_pps:
 		//if(naluUnit.size==8581)
-			printf("%d\n",naluUnit.size);
+			printf("NALU size:%8d\n",naluUnit.size);
 		last_update=RTMP_GetTime();
 		if(!ReadOneNaluFromBuf(naluUnit,read_buffer))
 				goto end;

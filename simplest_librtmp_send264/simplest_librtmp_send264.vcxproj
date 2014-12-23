@@ -20,7 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="librtmp_send264.h" />
-    <ClInclude Include="SpsDecode.h" />
+    <ClInclude Include="sps_decode.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{E146E4F1-919B-4CE8-8E0F-09B66F99076A}</ProjectGuid>

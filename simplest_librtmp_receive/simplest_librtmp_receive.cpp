@@ -90,10 +90,7 @@ int main(int argc, char* argv[])
 
 	while(nRead=RTMP_Read(rtmp,buf,bufsize)){
 		fwrite(buf,1,nRead,fp);
-		if (!bLiveStream && duration<0){
-			duration = RTMP_GetDuration(rtmp);
-			RTMP_LogPrintf("Duration:%f\n",duration);
-		}
+
 		countbufsize+=nRead;
 		RTMP_LogPrintf("Receive: %5dByte, Total: %5.2fkB\n",nRead,countbufsize*1.0/1024);
 	}
