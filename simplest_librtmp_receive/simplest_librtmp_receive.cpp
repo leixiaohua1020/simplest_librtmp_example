@@ -34,10 +34,10 @@ int main(int argc, char* argv[])
 	
 	double duration=-1;
 	int nRead;
-	//live stream or not
+	//is live stream ?
 	bool bLiveStream=true;				
 	
-	//10M
+	
 	int bufsize=1024*1024*10;			
 	char *buf=(char*)malloc(bufsize);
 	memset(buf,0,bufsize);
@@ -51,15 +51,15 @@ int main(int argc, char* argv[])
 	}
 	
 	/* set log level */
-	RTMP_LogLevel loglvl=RTMP_LOGDEBUG;
-	RTMP_LogSetLevel(loglvl);
+	//RTMP_LogLevel loglvl=RTMP_LOGDEBUG;
+	//RTMP_LogSetLevel(loglvl);
 
 	RTMP *rtmp=RTMP_Alloc();
 	RTMP_Init(rtmp);
 	//set connection timeout,default 30s
 	rtmp->Link.timeout=10;	
-	
-	if(!RTMP_SetupURL(rtmp,"rtmp://222.31.64.73/live/livestream"))
+	// HKS's live URL
+	if(!RTMP_SetupURL(rtmp,"rtmp://live.hkstv.hk.lxdns.com/live/hks"))
 	{
 		RTMP_Log(RTMP_LOGERROR,"SetupURL Err\n");
 		RTMP_Free(rtmp);
@@ -95,20 +95,17 @@ int main(int argc, char* argv[])
 			RTMP_LogPrintf("Duration:%f\n",duration);
 		}
 		countbufsize+=nRead;
-		RTMP_LogPrintf("Receive: %dByte, Total: %0.2fkB\n",nRead,countbufsize*1.0/1024);
+		RTMP_LogPrintf("Receive: %5dByte, Total: %5.2fkB\n",nRead,countbufsize*1.0/1024);
 	}
 
 	if(fp)
 		fclose(fp);
 
-	if(buf)
-	{
+	if(buf){
 		free(buf);
-		buf=NULL;
 	}
 
-	if(rtmp)
-	{
+	if(rtmp){
 		RTMP_Close(rtmp);
 		RTMP_Free(rtmp);
 		CleanupSockets();

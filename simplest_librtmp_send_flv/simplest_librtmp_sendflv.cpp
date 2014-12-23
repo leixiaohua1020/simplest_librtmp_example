@@ -85,7 +85,8 @@ void CleanupSockets()
 	WSACleanup();
 }
 
-int send_using_packet(){
+//Publish using RTMP_SendPacket()
+int publish_using_packet(){
 	RTMP *rtmp=NULL;			
 	RTMPPacket *packet=NULL;
 	uint32_t start_time=0;
@@ -111,8 +112,8 @@ int send_using_packet(){
 	}
 
 	/* set log level */
-	RTMP_LogLevel loglvl=RTMP_LOGDEBUG;
-	RTMP_LogSetLevel(loglvl);
+	//RTMP_LogLevel loglvl=RTMP_LOGDEBUG;
+	//RTMP_LogSetLevel(loglvl);
 		
 	if (!InitSockets()){
 		RTMP_LogPrintf("Init Socket Err\n");
@@ -123,7 +124,7 @@ int send_using_packet(){
 	RTMP_Init(rtmp);
 	//set connection timeout,default 30s
 	rtmp->Link.timeout=5;			
-	if(!RTMP_SetupURL(rtmp,"rtmp://222.31.64.73/live/livestream"))
+	if(!RTMP_SetupURL(rtmp,"rtmp://localhost/publishlive/livestream"))
 	{
 		RTMP_Log(RTMP_LOGERROR,"SetupURL Err\n");
 		RTMP_Free(rtmp);
@@ -253,7 +254,8 @@ int send_using_packet(){
 	return 0;
 }
 
-int send_using_write(){
+//Publish using RTMP_Write()
+int publish_using_write(){
 	uint32_t start_time=0;
 	uint32_t now_time=0;
 	uint32_t pre_frame_time=0;
@@ -277,8 +279,8 @@ int send_using_write(){
 	}
 
 	/* set log level */
-	RTMP_LogLevel loglvl=RTMP_LOGDEBUG;
-	RTMP_LogSetLevel(loglvl);
+	//RTMP_LogLevel loglvl=RTMP_LOGDEBUG;
+	//RTMP_LogSetLevel(loglvl);
 		
 	if (!InitSockets()){
 		RTMP_LogPrintf("Init Socket Err\n");
@@ -289,7 +291,7 @@ int send_using_write(){
 	RTMP_Init(rtmp);
 	//set connection timeout,default 30s
 	rtmp->Link.timeout=5;			
-	if(!RTMP_SetupURL(rtmp,"rtmp://222.31.64.73/live/livestream"))
+	if(!RTMP_SetupURL(rtmp,"rtmp://localhost/publishlive/livestream"))
 	{
 		RTMP_Log(RTMP_LOGERROR,"SetupURL Err\n");
 		RTMP_Free(rtmp);
@@ -387,12 +389,11 @@ int send_using_write(){
 
 	if (rtmp!=NULL){
 		RTMP_Close(rtmp);	
-		RTMP_Free(rtmp);	
+		RTMP_Free(rtmp);
 		rtmp=NULL;
 	}
 
-	if(pFileBuf)
-	{
+	if(pFileBuf){
 		free(pFileBuf);
 		pFileBuf=NULL;
 	}
@@ -402,7 +403,8 @@ int send_using_write(){
 }
 
 int main(int argc, char* argv[]){
-	//send_using_packet();
-	send_using_write();
+	//2 Methods:
+	publish_using_packet();
+	//publish_using_write();
 	return 0;
 }
