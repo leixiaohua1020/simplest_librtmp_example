@@ -74,15 +74,19 @@ int ReadTime(uint32_t *utime,FILE*fp){
 
 int InitSockets()
 {
+#ifdef WIN32
 	WORD version;
 	WSADATA wsaData;
 	version=MAKEWORD(2,2);
 	return (WSAStartup(version, &wsaData) == 0);
+#endif
 }
 
 void CleanupSockets()
 {
+#ifdef WIN32
 	WSACleanup();
+#endif
 }
 
 //Publish using RTMP_SendPacket()

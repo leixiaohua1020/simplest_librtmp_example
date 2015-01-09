@@ -17,15 +17,19 @@
 
 int InitSockets()
 {
+#ifdef WIN32
 	WORD version;
 	WSADATA wsaData;
 	version = MAKEWORD(1, 1);
 	return (WSAStartup(version, &wsaData) == 0);
+#endif
 }
 
 void CleanupSockets()
 {
+#ifdef WIN32
 	WSACleanup();
+#endif
 }
 
 int main(int argc, char* argv[])
@@ -82,8 +86,8 @@ int main(int argc, char* argv[])
 
 	if(!RTMP_ConnectStream(rtmp,0)){
 		RTMP_Log(RTMP_LOGERROR,"ConnectStream Err\n");
-		RTMP_Free(rtmp);
 		RTMP_Close(rtmp);
+		RTMP_Free(rtmp);
 		CleanupSockets();
 		return -1;
 	}
